@@ -105,9 +105,7 @@ height = 100
 width = 100
 newshape = (time, depth, 1, height, width)
 
-midy = 50 
-midx = 50 
-
+target = (5, 50, 50)
 centered_blobs = adjust_track(blobs, (5, 50, 50))
 
 canvas = np.zeros(newshape, dtype='uint8')

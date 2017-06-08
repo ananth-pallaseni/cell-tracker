@@ -137,7 +137,7 @@ if __name__ == '__main__':
 		time, depth, x, y = stack4d.shape 
 		for z in range(depth):
 			print('Starting depth {}'.format(z), end='\r')
-			sl = stack4d[:,z]
+			sl = stack4d[:,z]	
 			stack4d[:,z] = bleach_correct(sl)
 
 

@@ -51,6 +51,18 @@ def unit_volume(bbox):
     vol = dz * dy * dx 
     return vol
 
+def raw_volume(plist):
+	zl = 5
+	yl = 273.9877 / 495
+	xl = 278.4158 / 503
+
+	# Volume of a pixel
+	voxel = zl * yl * xl 
+
+	# Volume of blob = num pixels * piel vol
+	rvol = voxel * len(plist)
+
+
 # Get the volume in microns of a bounding box
 def mic_volume(bbox):
     zl = 5
@@ -92,7 +104,7 @@ def blob_stats(blob):
 	s = {}
 
 	# Raw blob stats
-	s['raw_volume'] = len(blob)
+	s['raw_volume'] = raw_volume(blob)
 	sumz = 0
 	sumy = 0
 	sumx = 0
@@ -135,7 +147,7 @@ def blob_stats(blob):
 
 
 
-def filter_bbox(bb_stats, min_unit_area=100, max_unit_area=3000, min_unit_stack=1, max_unit_stack=10, ap_ratio=3):
+def filter_bbox(bb_stats, min_unit_area=100, max_unit_area=3000, min_unit_stack=1, max_unit_stack=10, ap_ratio=3, min_vol=200, max_vol=8000):
 
 	min_area = bb_stats['unit_area'] > min_unit_area
 	max_area = bb_stats['unit_area'] < max_unit_area
@@ -145,11 +157,13 @@ def filter_bbox(bb_stats, min_unit_area=100, max_unit_area=3000, min_unit_stack=
 	max_depth = bb_stats['dz_unit'] < max_unit_stack
 	depth = min_depth and max_depth
 
+	# volume = bb_stats['raw_volume'] < max_vol and bb_stats['raw_volume'] > min_vol
+
 	inv_ap = 1 / ap_ratio
 	aspect_ratio_xy = bb_stats['dx_unit'] / bb_stats['dy_unit'] < ap_ratio and bb_stats['dx_unit'] / bb_stats['dy_unit'] > inv_ap
 	aspect_ratio = aspect_ratio_xy # and aspect_ratio_xz and aspect_ratio_yz
 
-	return area and depth and aspect_ratio
+	return area and depth and aspect_ratio #and volume
 
 
 
