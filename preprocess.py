@@ -176,7 +176,10 @@ def process(whole_stack, whole_auto_stack=None):
     time, depth, x, y = whole_stack.shape 
     for d in range(depth):
         stack = whole_stack[:,d,:,:]
-        auto_stack = whole_auto_stack[:,d,:,:]
+        if whole_auto_stack is not None:
+            auto_stack = whole_auto_stack[:,d,:,:]
+        else:
+            auto_stack = None
         stack = process_stack(stack, auto_stack=auto_stack)
         whole_stack[:,d,:,:] = stack 
     return whole_stack

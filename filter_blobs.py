@@ -97,10 +97,7 @@ def bbox_stats(bbox):
 
 	return s
 
-def blob_stats(blob):
-	zl = 5
-	yl = 273.9877 / 495
-	xl = 278.4158 / 503
+def blob_stats(blob, zl=5, yl=0.5535, xl=0.5535):
 	s = {}
 
 	# Raw blob stats
@@ -169,7 +166,7 @@ def filter_bbox(bb_stats, min_unit_area=100, max_unit_area=3000, min_unit_stack=
 
 
 
-def filter_blobs(all_blobs):
+def filter_blobs(all_blobs, zl=5, yl=0.5535, xl=0.5535):
 	filtered = []
 	for t in range(len(all_blobs)):
 		# Grab blob dictionary for time t
@@ -182,7 +179,7 @@ def filter_blobs(all_blobs):
 		# sig = zip(blob_slice, bboxes)
 		# sig = [b[0] for b in sig if filter_bbox(bbox_stats(b[1]))]
 
-		sig = [b for b in blob_slice if filter_bbox(blob_stats(b))]
+		sig = [b for b in blob_slice if filter_bbox(blob_stats(b, zl=zl, yl=yl, xl=xl))]
 
 		# Add to overall list 
 		filtered.append(sig)

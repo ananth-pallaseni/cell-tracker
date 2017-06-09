@@ -6,6 +6,7 @@ import draw_blobs as mod_draw
 
 import sys
 from multiprocessing import Pool 
+import json
 
 def pipeline(infile, outfile, autofile=None):
 	print('Loading ' + infile)
