@@ -6,6 +6,7 @@ import matplotlib.image as mpimg
 from mpl_toolkits.mplot3d import Axes3D
 import numpy as np
 import cv2
+from numpy import linalg
 
 import json
 import sys
@@ -20,6 +21,95 @@ def loadTiff(fname):
     imraw.close()
     return im
 
+
+
+def getMinVolEllipse(P, tolerance=0.01):
+	""" Find the minimum volume ellipsoid which holds all the points
+
+	Based on work by Nima Moshtagh
+	http://www.mathworks.com/matlabcentral/fileexchange/9542
+	and also by looking at:
+	http://cctbx.sourceforge.net/current/python/scitbx.math.minimum_covering_ellipsoid.html
+	Which is based on the first reference anyway!
+
+	Here, P is a numpy array of N dimensional points like this:
+	P = [[x,y,z,...], <-- one point per line
+	     [x,y,z,...],
+	     [x,y,z,...]]
+
+	Returns:
+	(center, radii, rotation)
+
+	"""
+
+	try:
+
+
+	    (N, d) = np.shape(P)
+	    d = float(d)
+
+	    # Q will be our working array
+	    Q = np.vstack([np.copy(P.T), np.ones(N)]) 
+	    QT = Q.T
+	    
+	    # initializations
+	    err = 1.0 + tolerance
+	    u = (1.0 / N) * np.ones(N)
+
+	    # Khachiyan Algorithm
+	    while err > tolerance:
+	        V = np.dot(Q, np.dot(np.diag(u), QT))
+	        M = np.diag(np.dot(QT , np.dot(linalg.inv(V), Q)))    # M the diagonal vector of an NxN matrix
+
+	        j = np.argmax(M)
+	        maximum = M[j]
+	        step_size = (maximum - d - 1.0) / ((d + 1.0) * (maximum - 1.0))
+	        new_u = (1.0 - step_size) * u
+	        new_u[j] += step_size
+	        err = np.linalg.norm(new_u - u)
+	        u = new_u
+
+	    # center of the ellipse 
+	    center = np.dot(P.T, u)
+
+	    # the A matrix for the ellipse
+	    A = linalg.inv(
+	                   np.dot(P.T, np.dot(np.diag(u), P)) - 
+	                   np.array([[a * b for b in center] for a in center])
+	                   ) / d
+	                   
+	    # Get the values we'd like to return
+	    U, s, rotation = linalg.svd(A)
+	    radii = 1.0/np.sqrt(s)
+	    
+	    return (center, radii, rotation)
+
+	except linalg.LinAlgError as err:
+		print('len of point cloud: ' + str(len(P)))
+		return (None, None, None)
+
+def ellipse_vol(radii):
+	r1, r2, r3 = radii 
+	return (4*np.pi*r1*r2*r3)/3
+
+def real_ellipse_vol(radii, zl=5, yl=0.5535, xl=0.5535):
+	# Volume of a pixel
+	voxel = zl * yl * xl 
+
+	return ellipse_vol(radii) * voxel
+
+# Takes in a blob in list format and returns the length of the radii of its bounding ellipse
+def get_ellipse_radii(blob):
+	bb = np.array(blob)
+	return getMinVolEllipse(bb)[1]
+
+def get_ellipse_ap_12(radii):
+	r1, r2, r3 = sorted(radii, reverse=True)
+	return r1 * r2
+
+def get_ellipse_ap_13(radii):
+	r1, r2, r3 = sorted(radii, reverse=True)
+	return r1 * r3
 
 # Takes in an array containing arrays of pixels
 # Returns an array of bounding boxes in the form (blobid, (minz, maxz, miny, maxy, minx, maxx))
@@ -140,11 +230,21 @@ def blob_stats(blob, zl=5, yl=0.5535, xl=0.5535):
 	s['unit_area'] = s['dy_unit'] * s['dx_unit']
 	s['bbox_centroid'] = (s['dz_unit']/2, s['dy_unit']/2, s['dx_unit']/2)
 
+	# # bounding ellipse stats
+	# center, radii, rot = getMinVolEllipse(np.array(blob))
+	# s['ellipse_center'] = center 
+	# s['ellipse_radii'] = radii
+	# s['ellipse_rot'] = rot 
+	# if center is  not None:
+	# 	s['ellipse_vol'] = real_ellipse_vol(radii)
+	# 	s['ellipse_aspect_ratio_12'] = get_ellipse_ap_12(radii)
+	# 	s['ellipse_aspect_ratio_13'] = get_ellipse_ap_13(radii)
+
 	return s 
 
 
 
-def filter_bbox(bb_stats, min_unit_area=100, max_unit_area=3000, min_unit_stack=1, max_unit_stack=10, ap_ratio=3, min_vol=200, max_vol=8000):
+def filter_bbox(bb_stats, min_unit_area=100, max_unit_area=3000, min_unit_stack=1, max_unit_stack=12, ap_ratio=3, min_vol=200, max_vol=8000):
 
 	min_area = bb_stats['unit_area'] > min_unit_area
 	max_area = bb_stats['unit_area'] < max_unit_area
@@ -157,8 +257,16 @@ def filter_bbox(bb_stats, min_unit_area=100, max_unit_area=3000, min_unit_stack=
 	# volume = bb_stats['raw_volume'] < max_vol and bb_stats['raw_volume'] > min_vol
 
 	inv_ap = 1 / ap_ratio
+
 	aspect_ratio_xy = bb_stats['dx_unit'] / bb_stats['dy_unit'] < ap_ratio and bb_stats['dx_unit'] / bb_stats['dy_unit'] > inv_ap
 	aspect_ratio = aspect_ratio_xy # and aspect_ratio_xz and aspect_ratio_yz
+
+
+	# if 'ellipse_aspect_ratio_12' in bb_stats:
+	# 	aspect_ratio = bb_stats['ellipse_aspect_ratio_12'] < ap_ratio and bb_stats['ellipse_aspect_ratio_12'] > inv_ap
+	# else:
+	# 	aspect_ratio_xy = bb_stats['dx_unit'] / bb_stats['dy_unit'] < ap_ratio and bb_stats['dx_unit'] / bb_stats['dy_unit'] > inv_ap
+	# 	aspect_ratio = aspect_ratio_xy # and aspect_ratio_xz and aspect_ratio_yz
 
 	return area and depth and aspect_ratio #and volume
 
