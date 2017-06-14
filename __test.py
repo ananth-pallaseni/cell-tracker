@@ -10,6 +10,7 @@ from mpl_toolkits.mplot3d import Axes3D
 import numpy as np
 import cv2
 from numpy import linalg
+import scipy.spatial 
 
 import json
 import sys
@@ -56,7 +57,7 @@ def getMinVolEllipse(P, tolerance=0.01):
 	    
 	    # initializations
 	    err = 1.0 + tolerance
-	    u = (1.0 / N) * np.ones(N)
+	    u = (1.0 / N) * np.ones(N) 
 
 	    # Khachiyan Algorithm
 	    while err > tolerance:
@@ -172,6 +173,11 @@ def mic_volume(bbox):
     vol = dz * dy * dx
     return vol
 
+def perimeter(blob2d):
+	hull = scipy.spatial.ConvexHull(blob2d)
+
+
+
 def blob_stats(blob, t, zl=5, yl=0.5535, xl=0.5535):
 	s = {}
 	s['time'] = t 
@@ -228,7 +234,18 @@ def blob_stats(blob, t, zl=5, yl=0.5535, xl=0.5535):
 		s['ellipse_aspect_ratio_12'] = get_ellipse_ap_12(radii)
 		s['ellipse_aspect_ratio_13'] = get_ellipse_ap_13(radii)
 
-
+	# 2d Shape Factors
+	xy_project = np.array(blob)[:,1:]
+	xy_cent, xy_rad, xy_rot = getMinVolEllipse(xy_project)
+	cvxhull = scipy.spatial.ConvexHull(xy_project)
+	s['xy_ell_centroid'] = xy_cent.tolist()
+	s['xy_ell_radii'] = xy_rad.tolist()
+	s['xy_ell_rotation'] = xy_rot.tolist()
+	s['xy_area'] = cvxhull.volume * xl * yl # Note that in 2d cvx volume is area and cvx area is perimeter
+	s['xy_perimeter'] = cvxhull.area * xl 
+	s['xy_circularity'] = ( 4 * np.pi * s['xy_area'] ) / s['xy_perimeter']**2
+	s['xy_roundness'] = (4 * s['xy_area']) / (np.pi * np.max(xy_rad)**2)
+	s['xy_aspect_ratio'] = np.max(xy_rad) / np.min(xy_rad)
 
 	return s 
 
